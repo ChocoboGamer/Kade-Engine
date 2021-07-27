@@ -1,5 +1,6 @@
 package;
 
+import haxe.iterators.StringIterator;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.FlxG;
@@ -11,7 +12,7 @@ import flixel.util.FlxTimer;
 
 using StringTools;
 
-/**
+/*
  * Loosley based on FlxTypeText lolol
  */
 class Alphabet extends FlxSpriteGroup
@@ -37,38 +38,30 @@ class Alphabet extends FlxSpriteGroup
 	var lastSprite:AlphaCharacter;
 	var xPosResetted:Bool = false;
 	var lastWasSpace:Bool = false;
-
+	
 	var listOAlphabets:List<AlphaCharacter> = new List<AlphaCharacter>();
-
-	var splitWords:Array<String> = [];
-
+	
 	var isBold:Bool = false;
-
+	
 	var pastX:Float = 0;
 	var pastY:Float  = 0;
 
-	public function new(x:Float, y:Float, text:String = "", ?bold:Bool = false, typed:Bool = false, shouldMove:Bool = false)
+	public var personTalking:String = 'gf';
+
+	public function new(x:Float, y:Float, str:String = "", ?bold:Bool = false, typed:Bool = false, shouldMove:Bool = false)
 	{
 		pastX = x;
 		pastY = y;
 
 		super(x, y);
 
-		_finalText = text;
-		this.text = text;
+		_finalText = str;
+		text = str;
 		isBold = bold;
 
 		if (text != "")
 		{
-			if (typed)
-			{
-				startTypedText();
-			}
-			else
-			{
-				addText();
-			}
-
+			addText();
 		}
 	}
 
@@ -92,62 +85,43 @@ class Alphabet extends FlxSpriteGroup
 
 	public function addText()
 	{
-		doSplitWords();
+		var charlist: Array<String> = doSplitWords();
 
-		var xPos:Float = 0;
-		for (character in splitWords)
+		var xpos: Float = 0;
+		var ypos: Float = 0;
+
+		for (char in charlist)
 		{
-			// if (character.fastCodeAt() == " ")
-			// {
-			// }
-
-			if (character == " " || character == "-")
+			if (char == " ")
+				xpos += 40;
+			else if (char == "\n")
 			{
-				lastWasSpace = true;
+				ypos += 60;
+				xpos = 0;
 			}
-
-			if (AlphaCharacter.alphabet.indexOf(character.toLowerCase()) != -1)
-				// if (AlphaCharacter.alphabet.contains(character.toLowerCase()))
+			else
 			{
-				if (lastSprite != null)
+				if (char.toLowerCase().charCodeAt(0) >= "a".code && char.toLowerCase().charCodeAt(0) <= "z".code)
 				{
-					xPos = lastSprite.x + lastSprite.width;
+					var sprite: AlphaCharacter = new AlphaCharacter(xpos, ypos);
+					listOAlphabets.add(sprite);
+
+					sprite.set_char(char, isBold);
+
+					add(sprite);
+					xpos += sprite.width;
 				}
-
-				if (lastWasSpace)
-				{
-					xPos += 40;
-					lastWasSpace = false;
-				}
-
-				// var letter:AlphaCharacter = new AlphaCharacter(30 * loopNum, 0);
-				var letter:AlphaCharacter = new AlphaCharacter(xPos, 0);
-				listOAlphabets.add(letter);
-
-				if (isBold)
-					letter.createBold(character);
-				else
-				{
-					letter.createLetter(character);
-				}
-
-				add(letter);
-
-				lastSprite = letter;
 			}
-
-			// loopNum += 1;
 		}
 	}
 
-	function doSplitWords():Void
+	function doSplitWords(): Array<String>
 	{
-		splitWords = _finalText.split("");
+		return _finalText.split("");
 	}
 
-	public var personTalking:String = 'gf';
 
-	public function startTypedText():Void
+	/*public function startTypedText():Void
 	{
 		_finalText = text;
 		doSplitWords();
@@ -247,7 +221,7 @@ class Alphabet extends FlxSpriteGroup
 
 			tmr.time = FlxG.random.float(0.04, 0.09);
 		}, splitWords.length);
-	}
+	}*/
 
 	override function update(elapsed:Float)
 	{
@@ -263,122 +237,58 @@ class Alphabet extends FlxSpriteGroup
 	}
 }
 
+
+
 class AlphaCharacter extends FlxSprite
 {
-	public static var alphabet:String = "abcdefghijklmnopqrstuvwxyz";
+	private var char: String; 
 
-	public static var numbers:String = "1234567890";
+	public function get_char(): String
+	{
+		return char;
+	}
 
-	public static var symbols:String = "|~#$%()*+-:;<=>@[]^_.,'!? ";
-
-	public var row:Int = 0;
+	public function set_char(letter: String, bold: Bool = true): Void
+	{
+		char = letter;
+		create(letter, bold);
+	}
 
 	public function new(x:Float, y:Float)
 	{
 		super(x, y);
 		var tex = Paths.getSparrowAtlas('alphabet');
-		frames = tex;
-		if(FlxG.save.data.antialiasing)
-			{
-				antialiasing = true;
-			}
+		set_frames(tex);
+		antialiasing = cast(FlxG.save.data.antialiasing,Bool);
 	}
 
-	public function createBold(letter:String)
-	{
-		animation.addByPrefix(letter, letter.toUpperCase() + " bold", 24);
-		animation.play(letter);
-		updateHitbox();
-	}
+	private static var symboloffsets: Map<String, Int> = [
+		"." => 50,
+		"_" => 50,
+	];
 
-	public function createLetter(letter:String):Void
+	private function create(letter: String, bold: Bool = false)
 	{
-		var letterCase:String = "lowercase";
-		if (letter.toLowerCase() != letter)
+		var prefix: String;
+		var offset: Int = 0;
+
+		if (symboloffsets.get(letter) != null)
 		{
-			letterCase = 'capital';
+			offset = symboloffsets.get(letter);
 		}
 
-		animation.addByPrefix(letter, letter + " " + letterCase, 24);
-		animation.play(letter);
-		updateHitbox();
-
-		FlxG.log.add('the row' + row);
-
-		y = (110 - height);
-		y += row * 60;
-	}
-
-	public function createNumber(letter:String):Void
-	{
-		animation.addByPrefix(letter, letter, 24);
-		animation.play(letter);
-
-		updateHitbox();
-	}
-
-	public function createSymbol(letter:String)
-	{
-		switch (letter)
+		if (bold)
 		{
-			case '.':
-				animation.addByPrefix(letter, 'period', 24);
-				animation.play(letter);
-				y += 50;
-			case "'":
-				animation.addByPrefix(letter, 'apostraphie', 24);
-				animation.play(letter);
-				y -= 0;
-			case "?":
-				animation.addByPrefix(letter, 'question mark', 24);
-				animation.play(letter);
-			case "!":
-				animation.addByPrefix(letter, 'exclamation point', 24);
-				animation.play(letter);
-			case '_':
-				animation.addByPrefix(letter, '_', 24);
-				animation.play(letter);
-				y += 50;
-			case "#":
-				animation.addByPrefix(letter, '#', 24);
-				animation.play(letter);
-			case "$":
-				animation.addByPrefix(letter, '$', 24);
-				animation.play(letter);
-			case "%":
-				animation.addByPrefix(letter, '%', 24);
-				animation.play(letter);
-			case "&":
-				animation.addByPrefix(letter, '&', 24);
-				animation.play(letter);
-			case "(":
-				animation.addByPrefix(letter, '(', 24);
-				animation.play(letter);
-			case ")":
-				animation.addByPrefix(letter, ')', 24);
-				animation.play(letter);
-			case "+":
-				animation.addByPrefix(letter, '+', 24);
-				animation.play(letter);
-			case "-":
-				animation.addByPrefix(letter, '-', 24);
-				animation.play(letter);
-			case '"':
-				animation.addByPrefix(letter, '"', 24);
-				animation.play(letter);
-				y -= 0;
-			case '@':
-				animation.addByPrefix(letter, '@', 24);
-				animation.play(letter);
-			case "^":
-				animation.addByPrefix(letter, '^', 24);
-				animation.play(letter);
-				y -= 0;
-			case ' ':
-				animation.addByPrefix(letter, 'space', 24);
-				animation.play(letter);
+			prefix = letter.toUpperCase().charCodeAt(0)+"-bold";
+		}
+		else
+		{
+			prefix = letter.charCodeAt(0)+"-";
 		}
 
+		animation.addByPrefix(letter, prefix, 24);
+		animation.play(letter);
+		y += offset;
 		updateHitbox();
 	}
 }
